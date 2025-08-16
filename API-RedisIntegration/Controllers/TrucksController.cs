@@ -25,8 +25,18 @@ namespace API_RedisIntegration.Controllers
                 {
                     ConnectionMultiplexer con = ConnectionMultiplexer.Connect("localhost:6379");
                     IDatabase db = con.GetDatabase();
-                    var jsonsAreas = JsonConvert.SerializeObject(req, Formatting.None);
-                    db.StringSet("Trucks", jsonsAreas);
+                    var jsonsTruck = JsonConvert.SerializeObject(req, Formatting.None);
+
+                    // เช็ค jsonsTruck มี TruckID ซ้ำกันหรือไม่ก่อน
+                    var truckID = req.Select(a => a.TruckID).ToList();
+                    if (truckID.Distinct().Count() != truckID.Count)
+                    {
+                        result.ErrorCode = 401;
+                        result.ErrorDesc = "TruckID not unique, please check again.";
+                        return Ok(result);
+                    }
+
+                    db.StringSet("Trucks", jsonsTruck);
                     
                     result.ErrorCode = 200;
                     result.ErrorDesc = "Trucks data add success.";
