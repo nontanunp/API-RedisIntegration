@@ -10,6 +10,7 @@
 
     public class TrucksResponse
     {
+
         public int ErrorCode { get; set; }
         public string ErrorDesc { get; set; }
 
