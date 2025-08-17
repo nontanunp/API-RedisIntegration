@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using StackExchange.Redis;
+using System.Collections.Generic;
 
 namespace API_RedisIntegration.Controllers
 {
@@ -9,6 +10,12 @@ namespace API_RedisIntegration.Controllers
     [Route("api/[action]")]
     public class AreasController : ControllerBase
     {
+        private readonly IConfiguration _configuration;
+        public AreasController(IConfiguration configuration)
+        {
+            _configuration = configuration;
+
+        }
         [HttpPost]
         //public async Task<IActionResult> Areas(Areas req)
         public async Task<IActionResult> Areas(List<Areas> req)
@@ -23,7 +30,9 @@ namespace API_RedisIntegration.Controllers
                 }
                 else
                 {
-                    ConnectionMultiplexer con = ConnectionMultiplexer.Connect("localhost:6379");
+                    string connStr = _configuration["ConnectionStrings:ConnectionStringsRedis"];
+                    ConnectionMultiplexer con = ConnectionMultiplexer.Connect(connStr);
+
                     IDatabase db = con.GetDatabase();
                     var jsonsAreas = JsonConvert.SerializeObject(req, Formatting.None);
 
@@ -39,13 +48,12 @@ namespace API_RedisIntegration.Controllers
 
                     // 
                     var urgency = req.Select(b => b.UrgencyLevel).ToList();
-                    if (Convert.ToInt32(urgency) > 5)
+                    if (urgency.Any(u => u < 1 || u > 5))
                     {
                         result.ErrorCode = 401;
-                        result.ErrorDesc = "UrgencyLevel Invalid (1-5) , please check again.";
+                        result.ErrorDesc = "UrgencyLevel Invalid (1-5) , please check again";
                         return Ok(result);
                     }
-
 
                     db.StringSet("Areas", jsonsAreas);
 
@@ -84,6 +92,27 @@ namespace API_RedisIntegration.Controllers
                 result.ErrorDesc = "Internal server error: " + ex.Message;
             }
             return Ok(result);
+        }
+
+
+        [HttpGet]
+        public async Task<IActionResult> GetAreasList()
+        {
+
+            try
+            {
+                string connStr = _configuration["ConnectionStrings:ConnectionStringsRedis"];
+                var con = ConnectionMultiplexer.Connect(connStr);
+                IDatabase db = con.GetDatabase();
+                string value = db.StringGet("Areas");
+
+                List<Areas> json = string.IsNullOrEmpty(value) ? new List<Areas>() : JsonConvert.DeserializeObject<List<Areas>>(value); 
+                return Ok(json);
+            }
+            catch (Exception ex)
+            {
+                return Ok(ex.Message);
+            }
         }
     }
 }

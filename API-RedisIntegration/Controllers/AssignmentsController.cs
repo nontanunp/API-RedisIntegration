@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using Pipelines.Sockets.Unofficial.Arenas;
 using StackExchange.Redis;
@@ -16,6 +18,18 @@ namespace API_RedisIntegration.Controllers
     [Route("api/[action]")]
     public class AssignmentsController : ControllerBase
     {
+        private readonly IConfiguration _configuration;
+        public AssignmentsController( IConfiguration configuration)
+        {
+            _configuration = configuration;
+        }
+
+
+
+        //private string connStr = "nontanun.southeastasia.redis.azure.net:10000,password=ywIHmULYIhFKjKVVYdJqefNQZw00QrarNAzCaPdzhMM=,ssl=True,abortConnect=False";
+        //private string host = "nontanun.southeastasia.redis.azure.net";
+        //private int port = 10000;
+
 
         [HttpDelete]
         public async Task<IActionResult> DeleteAssignments()
@@ -23,9 +37,14 @@ namespace API_RedisIntegration.Controllers
             AssignmentsResponse result = new AssignmentsResponse();
             try
             {
-                ConnectionMultiplexer con = ConnectionMultiplexer.Connect("localhost:6379");
+                string connStr = _configuration["ConnectionStrings:ConnectionStringsRedis"];
+                string host = _configuration["ConnectionStrings:Host"];
+                int port = int.Parse(_configuration["ConnectionStrings:Port"]);
+
+                var con = ConnectionMultiplexer.Connect(connStr);
                 IDatabase db = con.GetDatabase();
-                var server = con.GetServer("localhost", 6379);
+                var server = con.GetServer(host, port);
+
                 foreach (var key in server.Keys(pattern: "ans*"))
                 {
                     db.KeyDelete(key);
@@ -44,12 +63,18 @@ namespace API_RedisIntegration.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAssignments()
         {
+           
             AssignmentsResponse result = new AssignmentsResponse();
             try
             {
-                ConnectionMultiplexer con = ConnectionMultiplexer.Connect("localhost:6379");
+                string connStr = _configuration["ConnectionStrings:ConnectionStringsRedis"];
+                string host = _configuration["ConnectionStrings:Host"];
+                int port = int.Parse(_configuration["ConnectionStrings:Port"]);
+
+                var con = ConnectionMultiplexer.Connect(connStr);
                 IDatabase db = con.GetDatabase();
-                var server = con.GetServer("localhost", 6379);
+                var server = con.GetServer(host, port);
+
                 var keys = server.Keys(pattern: "ans*").ToList();
                 keys = keys.OrderBy(k => k.ToString().Substring(3)).ToList();
                 if (keys.Count == 0)
@@ -78,6 +103,7 @@ namespace API_RedisIntegration.Controllers
             }
         }
 
+
         [HttpPost]
         public async Task<IActionResult> Assignments()
         {
@@ -85,7 +111,12 @@ namespace API_RedisIntegration.Controllers
             AssignmentsResponse response = new AssignmentsResponse();
             int reuslt = int.MinValue;
 
-            ConnectionMultiplexer con = ConnectionMultiplexer.Connect("localhost:6379");
+            string connStr = _configuration["ConnectionStrings:ConnectionStringsRedis"];
+            string host = _configuration["ConnectionStrings:Host"];
+            int port = int.Parse(_configuration["ConnectionStrings:Port"]);
+
+
+            ConnectionMultiplexer con = ConnectionMultiplexer.Connect(connStr);
             IDatabase db = con.GetDatabase();
 
             List<string> totalTruckisMathList = new List<string>();
@@ -152,7 +183,7 @@ namespace API_RedisIntegration.Controllers
                                 bool hasEnough = true;
                                 for (int k = 0; k < _totalRequiredResources; k++)
                                 {
-                                    string key = RequiredResourcesKey[k]; 
+                                    string key = RequiredResourcesKey[k];
                                     int requiredValue = int.Parse(RequiredResourcesValuse[k]); // รับได้ทั้ง int และ string 
                                     if (truck[j].AvailableResources[key] < requiredValue)
                                     {
@@ -213,7 +244,7 @@ namespace API_RedisIntegration.Controllers
                         }
                         else
                         {
-                          
+
                             // set ค่าไว้  บันทึกข้อมูลลง Redis
                             responseData.AreaID = _areaID;
                             responseData.TruckID = "Not found truck resources for area: " + _areaID;
@@ -231,7 +262,7 @@ namespace API_RedisIntegration.Controllers
                     if (reuslt == 0)
                     {
                         // ดึงข้อมูลทั้งหมดที่บันทึกไว้ใน Redis
-                        var server = con.GetServer("localhost", 6379);
+                        var server = con.GetServer(host, port);
                         var keys = server.Keys(pattern: "ans*").ToList();
                         if (keys.Count == 0)
                         {
