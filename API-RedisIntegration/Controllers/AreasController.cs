@@ -30,7 +30,8 @@ namespace API_RedisIntegration.Controllers
                 }
                 else
                 {
-                    string connStr = _configuration["ConnectionStrings:ConnectionStringsRedis"];
+
+                    string connStr = Environment.GetEnvironmentVariable("CONNECTIONSTRINGSREDIS");
                     ConnectionMultiplexer con = ConnectionMultiplexer.Connect(connStr);
 
                     IDatabase db = con.GetDatabase();
@@ -101,7 +102,7 @@ namespace API_RedisIntegration.Controllers
 
             try
             {
-                string connStr = _configuration["ConnectionStrings:ConnectionStringsRedis"];
+                string connStr = Environment.GetEnvironmentVariable("CONNECTIONSTRINGSREDIS");
                 var con = ConnectionMultiplexer.Connect(connStr);
                 IDatabase db = con.GetDatabase();
                 string value = db.StringGet("Areas");

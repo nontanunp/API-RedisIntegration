@@ -1,23 +1,20 @@
-﻿{
-  "$schema": "http://json.schemastore.org/launchsettings.json",
-  "iisSettings": {
-    "windowsAuthentication": false,
-    "anonymousAuthentication": true,
-    "iisExpress": {
-      "applicationUrl": "http://localhost:11014",
-      "sslPort": 0
-    }
-  },
+{
   "profiles": {
     "http": {
       "commandName": "Project",
-      "dotnetRunMessages": true,
       "launchBrowser": true,
       "launchUrl": "swagger",
-      "applicationUrl": "http://localhost:5037",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      }
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "CONNECTIONSTRINGSREDIS": "nontanun.southeastasia.redis.azure.net:10000,password=ywIHmULYIhFKjKVVYdJqefNQZw00QrarNAzCaPdzhMM=,ssl=True,abortConnect=False",
+        "HOST": "nontanun.southeastasia.redis.azure.net",
+        "PORT": "10000",
+        "CONNECTIONSTRINGSREDIS_T": "localhost:6379",
+        "HOST_T": "localhost",
+        "PORT_T": "6379"
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "http://localhost:5037"
     },
     "IIS Express": {
       "commandName": "IISExpress",
@@ -26,6 +23,15 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    }
+  },
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:11014",
+      "sslPort": 0
     }
   }
 }
