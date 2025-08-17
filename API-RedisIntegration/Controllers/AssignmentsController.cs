@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using Azure;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileSystemGlobbing.Internal;
@@ -20,7 +22,7 @@ namespace API_RedisIntegration.Controllers
     public class AssignmentsController : ControllerBase
     {
         private readonly IConfiguration _configuration;
-        public AssignmentsController( IConfiguration configuration)
+        public AssignmentsController(IConfiguration configuration)
         {
             _configuration = configuration;
         }
@@ -38,12 +40,16 @@ namespace API_RedisIntegration.Controllers
 
                 var con = ConnectionMultiplexer.Connect(connStr);
                 IDatabase db = con.GetDatabase();
-                var server = con.GetServer(host, port);
+                //var server = con.GetServer(host, port);
 
-                foreach (var key in server.Keys(pattern: "ans*"))
-                {
-                    db.KeyDelete(key);
-                }
+                db.KeyDelete("ANS_INDEX");
+
+                /***** แบบเดิมใช้ pattern: "ans*" วนลบเอา*******
+                //foreach (var key in server.Keys(pattern: "ans*"))
+                //{
+                //    db.KeyDelete(key);
+                //}
+                *********************************************/
                 result.ErrorCode = 200;
                 result.ErrorDesc = "All assignments deleted successfully.";
             }
@@ -58,7 +64,7 @@ namespace API_RedisIntegration.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAssignments()
         {
-           
+
             AssignmentsResponse result = new AssignmentsResponse();
             try
             {
@@ -66,9 +72,32 @@ namespace API_RedisIntegration.Controllers
                 var host = Environment.GetEnvironmentVariable("HOST");
                 int port = int.Parse(Environment.GetEnvironmentVariable("PORT"));
 
-
                 var con = ConnectionMultiplexer.Connect(connStr);
                 IDatabase db = con.GetDatabase();
+                var keys = db.SetMembers("ANS_INDEX");
+
+                if (keys.Count() == 0)
+                {
+                    result.ErrorCode = 404;
+                    result.ErrorDesc = "No assignments found.";
+                    return Ok(result);
+                }
+
+                List<string> jsonANS = new List<string>();
+                foreach (var key in keys)
+                {
+                    jsonANS.Add(key.ToString());
+                }
+
+                jsonANS = jsonANS.OrderBy(j => j.Substring(3)).ToList();
+                List<AssignmentsDataResponse> assignmentsList = new List<AssignmentsDataResponse>();
+                foreach (var item in jsonANS)
+                {
+                    AssignmentsDataResponse assignment = JsonConvert.DeserializeObject<AssignmentsDataResponse>(item);
+                    assignmentsList.Add(assignment);
+
+                }
+                /**************  แบบเดิมใช้ pattern: "ans*" ในการหา ****************
                 var keys = con.GetServer(host, port).Keys(pattern: "ans*").ToList();
 
                 //var keys = server.Keys(pattern: "ans*").ToList();
@@ -90,6 +119,7 @@ namespace API_RedisIntegration.Controllers
                         assignmentsList.Add(assignment);
                     }
                 }
+                ***************************************************************/
                 return Ok(assignmentsList);
             }
             catch (Exception ex)
@@ -118,7 +148,7 @@ namespace API_RedisIntegration.Controllers
             IDatabase db = con.GetDatabase();
 
             List<string> totalTruckisMathList = new List<string>();
-            TimeSpan expiry = TimeSpan.FromSeconds(1800); //seconds 30 นาที
+
 
             try
             {
@@ -218,70 +248,139 @@ namespace API_RedisIntegration.Controllers
                                 }
                             }
                         }
-
                         // หลังจากเช็คทุกคันรถแล้ว ถ้ามีรถที่ตรงตามเงื่อนไข
+                        string ErrorDesc = String.Empty;
                         if (totalTruckisMathList.Count > 0)
                         {
                             // ถ้ามีเลือกรถที่จำนวนการเดินทางน้อยที่สุด
                             TruckisMathList truckisMathListOrderBy = new TruckisMathList();
                             truckisMathListOrderBy = totalTruckisMathList.Select(x => JsonConvert.DeserializeObject<TruckisMathList>(x)).OrderBy(o => o.TravelTime).FirstOrDefault();
                             _truckID = truckisMathListOrderBy.TruckID;
-
-
-                            // set ค่าไว้  บันทึกข้อมูลลง Redis
-                            responseData.AreaID = _areaID;
-                            responseData.TruckID = _truckID;
-                            responseData.ResourcesDelivered = requiredResources;
-                            string answer = JsonConvert.SerializeObject(responseData, Formatting.None);
-                            db.StringSet("ans" + i, answer, expiry);
-
-                            reuslt = 0;
-                            response.ErrorCode = 200;
-                            response.ErrorDesc = "Assignment created successfully for area: " + _areaID + " with truck: " + _truckID;
-
+                            ErrorDesc = "Assignment created successfully for area: " + _areaID + " with truck: " + _truckID;
                         }
-                        else
+                        else // ถ้าไม่พบรถที่ตรงตามเงื่อนไข
                         {
-
-                            // set ค่าไว้  บันทึกข้อมูลลง Redis
-                            responseData.AreaID = _areaID;
-                            responseData.TruckID = "Not found truck resources for area: " + _areaID;
-                            responseData.ResourcesDelivered = requiredResources;
-                            string answer = JsonConvert.SerializeObject(responseData, Formatting.None);
-                            db.StringSet("ans" + i, answer, expiry);
-
-                            reuslt = 0;
-                            response.ErrorCode = 200;
-                            response.ErrorDesc = "Not enough resources available for area: " + _areaID;
-
+                            _truckID = "Not found truck resources for area: " + _areaID;
+                            ErrorDesc = "Not enough resources available for area: " + _areaID;
                         }
+                        //////set ค่าไว้  บันทึกข้อมูลลง Redis
+                        responseData.AreaID = _areaID;
+                        responseData.TruckID = _truckID;
+                        responseData.ResourcesDelivered = requiredResources;
+                        string answer = JsonConvert.SerializeObject(responseData, Formatting.None);
+
+                        db.SetAdd("ANS_INDEX", answer);
+                        db.KeyExpire("ANS_INDEX", TimeSpan.FromSeconds(1800)); // 30 นาที
+
+                        reuslt = 0;
+                        response.ErrorCode = 200;
+                        response.ErrorDesc = ErrorDesc;
+
+                        /*********** แบบเดิม sonic *********************
+                        //////////// หลังจากเช็คทุกคันรถแล้ว ถ้ามีรถที่ตรงตามเงื่อนไข
+                        //////////if (totalTruckisMathList.Count > 0)
+                        //////////{
+                        //////////    // ถ้ามีเลือกรถที่จำนวนการเดินทางน้อยที่สุด
+                        //////////    TruckisMathList truckisMathListOrderBy = new TruckisMathList();
+                        //////////    truckisMathListOrderBy = totalTruckisMathList.Select(x => JsonConvert.DeserializeObject<TruckisMathList>(x)).OrderBy(o => o.TravelTime).FirstOrDefault();
+                        //////////    _truckID = truckisMathListOrderBy.TruckID;
+
+
+                        //////////    // set ค่าไว้  บันทึกข้อมูลลง Redis
+                        //////////    responseData.AreaID = _areaID;
+                        //////////    responseData.TruckID = _truckID;
+                        //////////    responseData.ResourcesDelivered = requiredResources;
+                        //////////    string answer = JsonConvert.SerializeObject(responseData, Formatting.None);
+
+                        //////////    //db.StringSet("ans" + i, answer, expiry);
+
+                        //////////    db.SetAdd("ANS_INDEX", answer);
+                        //////////    db.KeyExpire("ANS_INDEX", TimeSpan.FromSeconds(1800)); // 30 นาที
+
+
+                        //////////    reuslt = 0;
+                        //////////    response.ErrorCode = 200;
+                        //////////    response.ErrorDesc = "Assignment created successfully for area: " + _areaID + " with truck: " + _truckID;
+
+                        //////////}
+                        //////////else // ถ้าไม่พบรถที่ตรงตามเงื่อนไข
+                        //////////{
+
+                        //////////    // set ค่าไว้  บันทึกข้อมูลลง Redis
+                        //////////    responseData.AreaID = _areaID;
+                        //////////    responseData.TruckID = "Not found truck resources for area: " + _areaID;
+                        //////////    responseData.ResourcesDelivered = requiredResources;
+                        //////////    string answer = JsonConvert.SerializeObject(responseData, Formatting.None);
+
+                        //////////    // db.StringSet("ans" + i, answer, expiry);
+
+                        //////////    db.SetAdd("ANS_INDEX", answer);
+                        //////////    db.KeyExpire("ANS_INDEX", TimeSpan.FromSeconds(1800)); // 30 นาที
+
+
+
+                        //////////    reuslt = 0;
+                        //////////    response.ErrorCode = 200;
+                        //////////    response.ErrorDesc = "Not enough resources available for area: " + _areaID;
+
+                        //////////}
+                        ************************************************/
                     }
 
                     if (reuslt == 0)
                     {
                         // ดึงข้อมูลทั้งหมดที่บันทึกไว้ใน Redis
-                        var server = con.GetServer(host, port);
-                        var keys = server.Keys(pattern: "ans*").ToList();
-                        if (keys.Count == 0)
+
+                        var keys = db.SetMembers("ANS_INDEX");
+
+                        if (keys.Count() == 0)
                         {
                             response.ErrorCode = 404;
                             response.ErrorDesc = "No assignments found.";
                             return Ok(response);
                         }
 
-                        // สร้าง List สำหรับเก็บข้อมูล AssignmentsDataResponse เรียงตามลำดับ
-                        List<AssignmentsDataResponse> assignmentsList = new List<AssignmentsDataResponse>();
-                        keys = keys.OrderBy(k => k.ToString().Substring(3)).ToList();
-
+                        List<string> jsonANS = new List<string>();
                         foreach (var key in keys)
                         {
-                            string jsonData = db.StringGet(key);
-                            if (!string.IsNullOrEmpty(jsonData))
-                            {
-                                AssignmentsDataResponse assignment = JsonConvert.DeserializeObject<AssignmentsDataResponse>(jsonData);
-                                assignmentsList.Add(assignment);
-                            }
+                            jsonANS.Add(key.ToString());
                         }
+
+                        jsonANS = jsonANS.OrderBy(j => j.Substring(3)).ToList();
+                        List<AssignmentsDataResponse> assignmentsList = new List<AssignmentsDataResponse>();
+                        foreach (var item in jsonANS)
+                        {
+                            AssignmentsDataResponse assignment = JsonConvert.DeserializeObject<AssignmentsDataResponse>(item);
+                            assignmentsList.Add(assignment);
+
+                        }
+
+                        /**************  แบบเดิมใช้ pattern: "ans*" ในการหา ****************
+
+                        //var server = con.GetServer(host, port);
+                        //var keys = server.Keys(pattern: "ans*").ToList();
+
+                        //if (keys.Count == 0)
+                        //{
+                        //    response.ErrorCode = 404;
+                        //    response.ErrorDesc = "No assignments found.";
+                        //    return Ok(response);
+                        //}
+
+                        // สร้าง List สำหรับเก็บข้อมูล AssignmentsDataResponse เรียงตามลำดับ
+                        //List<AssignmentsDataResponse> assignmentsList = new List<AssignmentsDataResponse>();
+                        //keys = keys.OrderBy(k => k.ToString().Substring(3)).ToList();
+
+                        //foreach (var key in keys)
+                        //{
+                        //    string jsonData = db.StringGet(key);
+                        //    if (!string.IsNullOrEmpty(jsonData))
+                        //    {
+                        //        AssignmentsDataResponse assignment = JsonConvert.DeserializeObject<AssignmentsDataResponse>(jsonData);
+                        //        assignmentsList.Add(assignment);
+                        //    }
+                        //}
+                        /***************************************************************/
                         return Ok(assignmentsList);
                     }
                 }

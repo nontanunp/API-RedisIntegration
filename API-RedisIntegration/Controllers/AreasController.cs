@@ -107,7 +107,7 @@ namespace API_RedisIntegration.Controllers
                 IDatabase db = con.GetDatabase();
                 string value = db.StringGet("Areas");
 
-                List<Areas> json = string.IsNullOrEmpty(value) ? new List<Areas>() : JsonConvert.DeserializeObject<List<Areas>>(value); 
+                List<Areas> json = string.IsNullOrEmpty(value) ? new List<Areas>() : JsonConvert.DeserializeObject<List<Areas>>(value);
                 return Ok(json);
             }
             catch (Exception ex)
