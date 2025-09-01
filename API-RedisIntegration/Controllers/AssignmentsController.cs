@@ -182,8 +182,8 @@ namespace API_RedisIntegration.Controllers
 
                         _areaID = areasOrder[i].AreaID;
                         Dictionary<string, int> requiredResources = new Dictionary<string, int>();
-                        requiredResources = areasOrder[i].RequiredResources;
-                        total = areasOrder[i].RequiredResources.Count;
+                        requiredResources = areasOrder[i].RequiredResources; // มีอะไรบ้าง
+                        total = areasOrder[i].RequiredResources.Count; // จำนวนของที่มี food water
 
                         List<string> RequiredResourcesKey = new List<string>();
                         List<string> RequiredResourcesValuse = new List<string>();
@@ -212,7 +212,7 @@ namespace API_RedisIntegration.Controllers
                                 for (int k = 0; k < _totalRequiredResources; k++)
                                 {
                                     string key = RequiredResourcesKey[k];
-                                    int requiredValue = int.Parse(RequiredResourcesValuse[k]); // รับได้ทั้ง int และ string 
+                                    int requiredValue = int.Parse(RequiredResourcesValuse[k]);
                                     if (truck[j].AvailableResources[key] < requiredValue)
                                     {
                                         // ถ้าไม่พอ ให้เปลี่ยน hasEnough เป็น false
@@ -241,11 +241,9 @@ namespace API_RedisIntegration.Controllers
 
                                             string jsonInfo = JsonConvert.SerializeObject(info, Formatting.None);
                                             totalTruckisMathList.Add(jsonInfo);
-
-
                                         }
                                     }
-                                }
+                                } //ถ้าไม่เข้าเงื่อนไข้ก็ไม่มีอะไรไม่บันทึกลง totalTruckisMathList 
                             }
                         }
                         // หลังจากเช็คทุกคันรถแล้ว ถ้ามีรถที่ตรงตามเงื่อนไข

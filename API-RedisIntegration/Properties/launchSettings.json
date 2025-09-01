@@ -6,12 +6,12 @@
       "launchUrl": "swagger",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
+        "CONNECTIONSTRINGSREDIS_K": "localhost:6379",
+        "HOST_K": "localhost",
+        "PORT_K": "6379",
         "CONNECTIONSTRINGSREDIS": "nontanun.southeastasia.redis.azure.net:10000,password=ywIHmULYIhFKjKVVYdJqefNQZw00QrarNAzCaPdzhMM=,ssl=True,abortConnect=False",
         "HOST": "nontanun.southeastasia.redis.azure.net",
-        "PORT": "10000",
-        "CONNECTIONSTRINGSREDIS_T": "localhost:6379",
-        "HOST_T": "localhost",
-        "PORT_T": "6379"
+        "PORT": "10000"
       },
       "dotnetRunMessages": true,
       "applicationUrl": "http://localhost:5037"
